@@ -5,6 +5,7 @@
 import 'dart:io';
 import 'dart:ui' show Image, Picture, Size;
 
+import 'package:http/http.dart';
 import 'package:flutter/foundation.dart';
 
 /// Whether to replace all shadows with solid color blocks.
@@ -20,15 +21,15 @@ import 'package:flutter/foundation.dart';
 /// leaking from one test case to another.
 bool debugDisableShadows = false;
 
-/// Signature for a method that returns an [HttpClient].
+/// Signature for a method that returns an [Client].
 ///
 /// Used by [debugNetworkImageHttpClientProvider].
-typedef HttpClientProvider = HttpClient Function();
+typedef HttpClientProvider = Client Function();
 
-/// Provider from which [NetworkImage] will get its [HttpClient] in debug builds.
+/// Provider from which [NetworkImage] will get its [Client] in debug builds.
 ///
 /// If this value is unset, [NetworkImage] will use its own internally-managed
-/// [HttpClient].
+/// [Client].
 ///
 /// This setting can be overridden for testing to ensure that each test receives
 /// a mock client that hasn't been affected by other tests.

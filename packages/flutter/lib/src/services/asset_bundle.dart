@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:http/http.dart';
 
 import 'package:flutter/foundation.dart';
 
@@ -123,17 +124,17 @@ class NetworkAssetBundle extends AssetBundle {
   /// to the given base URL.
   NetworkAssetBundle(Uri baseUrl)
     : _baseUrl = baseUrl,
-      _httpClient = HttpClient();
+      _httpClient = Client();
 
   final Uri _baseUrl;
-  final HttpClient _httpClient;
+  final Client _httpClient;
 
   Uri _urlFromKey(String key) => _baseUrl.resolve(key);
 
   @override
   Future<ByteData> load(String key) async {
-    final HttpClientRequest request = await _httpClient.getUrl(_urlFromKey(key));
-    final HttpClientResponse response = await request.close();
+    final request = Request('GET', _urlFromKey(key));
+    final response = await _httpClient.send(request);
     if (response.statusCode != HttpStatus.ok) {
       throw FlutterError.fromParts(<DiagnosticsNode>[
         _errorSummaryWithKey(key),

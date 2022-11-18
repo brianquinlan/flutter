@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:http/http.dart';
 
 export 'dart:io' show HttpClientResponse;
 export 'dart:typed_data' show Uint8List;
@@ -47,7 +48,7 @@ typedef BytesReceivedCallback = void Function(int cumulative, int? total);
 /// set both [HttpClient.autoUncompress] to false and the `autoUncompress`
 /// parameter to false.
 Future<Uint8List> consolidateHttpClientResponseBytes(
-  HttpClientResponse response, {
+  StreamedResponse response, {
   bool autoUncompress = true,
   BytesReceivedCallback? onBytesReceived,
 }) {
@@ -56,30 +57,11 @@ Future<Uint8List> consolidateHttpClientResponseBytes(
 
   final _OutputBuffer output = _OutputBuffer();
   ByteConversionSink sink = output;
-  int? expectedContentLength = response.contentLength;
-  if (expectedContentLength == -1) {
-    expectedContentLength = null;
-  }
-  switch (response.compressionState) {
-    case HttpClientResponseCompressionState.compressed:
-      if (autoUncompress) {
-        // We need to un-compress the bytes as they come in.
-        sink = gzip.decoder.startChunkedConversion(output);
-      }
-      break;
-    case HttpClientResponseCompressionState.decompressed:
-      // response.contentLength will not match our bytes stream, so we declare
-      // that we don't know the expected content length.
-      expectedContentLength = null;
-      break;
-    case HttpClientResponseCompressionState.notCompressed:
-      // Fall-through.
-      break;
-  }
+  int? expectedContentLength = null;
 
   int bytesReceived = 0;
   late final StreamSubscription<List<int>> subscription;
-  subscription = response.listen((List<int> chunk) {
+  subscription = response.stream.listen((List<int> chunk) {
     sink.add(chunk);
     if (onBytesReceived != null) {
       bytesReceived += chunk.length;

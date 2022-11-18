@@ -3,10 +3,12 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:core';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart';
 
 import 'binding.dart';
 import 'debug.dart';
@@ -76,13 +78,10 @@ class NetworkImage extends image_provider.ImageProvider<image_provider.NetworkIm
   }
 
   // Do not access this field directly; use [_httpClient] instead.
-  // We set `autoUncompress` to false to ensure that we can trust the value of
-  // the `Content-Length` HTTP header. We automatically uncompress the content
-  // in our call to [consolidateHttpClientResponseBytes].
-  static final HttpClient _sharedHttpClient = HttpClient()..autoUncompress = false;
-
-  static HttpClient get _httpClient {
-    HttpClient client = _sharedHttpClient;
+  static final Client _sharedHttpClient = Client();
+  
+  static Client get _httpClient {
+    Client client = _sharedHttpClient;
     assert(() {
       if (debugNetworkImageHttpClientProvider != null) {
         client = debugNetworkImageHttpClientProvider!();
@@ -102,30 +101,30 @@ class NetworkImage extends image_provider.ImageProvider<image_provider.NetworkIm
       assert(key == this);
 
       final Uri resolved = Uri.base.resolve(key.url);
+      final request = Request('GET', resolved);
+      if (headers != null) {
+        request.headers.addAll(headers!);
+      }
+      final response = await _httpClient.send(request);
 
-      final HttpClientRequest request = await _httpClient.getUrl(resolved);
-
-      headers?.forEach((String name, String value) {
-        request.headers.add(name, value);
-      });
-      final HttpClientResponse response = await request.close();
       if (response.statusCode != HttpStatus.ok) {
         // The network may be only temporarily unavailable, or the file will be
         // added on the server later. Avoid having future calls to resolve
         // fail to check the network again.
-        await response.drain<List<int>>(<int>[]);
+        await response.stream.drain<List<int>>(<int>[]);
         throw image_provider.NetworkImageLoadException(statusCode: response.statusCode, uri: resolved);
       }
 
       final Uint8List bytes = await consolidateHttpClientResponseBytes(
         response,
-        onBytesReceived: (int cumulative, int? total) {
+       onBytesReceived: (int cumulative, int? total) {
           chunkEvents.add(ImageChunkEvent(
             cumulativeBytesLoaded: cumulative,
             expectedTotalBytes: total,
           ));
         },
       );
+
       if (bytes.lengthInBytes == 0) {
         throw Exception('NetworkImage is an empty file: $resolved');
       }
